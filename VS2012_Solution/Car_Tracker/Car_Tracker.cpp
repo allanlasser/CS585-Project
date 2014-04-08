@@ -11,17 +11,18 @@
 using namespace std;
 using namespace cv;
 
-
 vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade);
 
-// instructions for building our own Haar cascade
-// http://note.sonots.com/SciSoftware/haartraining.html
-string carCascadeFile = "cars.xml";
-CascadeClassifier carCascade;
+int main(int argc, char* argv[]) {
+	int frame_counter = 0;
+	int frame_total = 114;
+	String frame_folder = "./data/";
+	String frame_filetype = ".png";
 
-
-int main(int argc, char* argv[])
-{
+	// instructions for building our own Haar cascade
+	// http://note.sonots.com/SciSoftware/haartraining.html
+	string carCascadeFile = "cars.xml";
+	CascadeClassifier carCascade;
 	// cascade code from HW7P2
 	if (!carCascade.load(carCascadeFile)) {
 		// TODO: Proper error handling
@@ -29,24 +30,27 @@ int main(int argc, char* argv[])
 		return -1; 
 	}
 
-	int counter = 0;
-	while (counter < 114) {
-		String filename = "./data/0000000";
-
-		if (counter < 10) {
-			filename += "00" + to_string(counter);
-		} else if (counter < 100) {
-			filename += "0" + to_string(counter);
+	while (frame_counter < frame_total) {
+		// Read current image as video frame
+		// Every image files is 10 digits + filetype
+		// Currently supports up to 999,999 frames
+		String filename = frame_folder;
+		if (frame_counter < 10) {
+			filename += "000000000";
+		} else if (frame_counter < 100) {
+			filename += "00000000";
+		} else if (frame_counter < 1000) {
+			filename += "0000000";
+		} else if (frame_counter < 10000) {
+			filename += "000000";
 		} else {
-			filename += to_string(counter);
+			filename += "00000";
 		}
-
-		filename += ".png";
-		cout << filename;
+		filename += to_string(frame_counter) + frame_filetype;
 
 		Mat frame;
 		frame = imread(filename, 0);
-
+		
 		vector<Rect> cars;
 		cars = detectCars(frame, carCascade);
 
@@ -60,7 +64,7 @@ int main(int argc, char* argv[])
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
 			break;
-		counter++;
+		frame_counter++;
 	}
 }
 
@@ -72,5 +76,3 @@ vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade) {
 	carCascade.detectMultiScale(grayImage, cars, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
 	return cars;
 }
-
-
