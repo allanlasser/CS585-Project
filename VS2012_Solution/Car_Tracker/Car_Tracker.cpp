@@ -1,48 +1,76 @@
-// CS585 Lab 1, Part 0
-// Hello, CS585!
-//
-// This program reads an image from a file, then displays the image.
-// The program waits for the user to press a key to end the program, 
-// prints the key that was pressed, then exits.
-//
-// Copyright 2014 Diane H. Theriault
-//
-
 #include "stdafx.h"
 #include <iostream>
+#include <ctype.h>
+#include <string>
+#include <vector>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
 
 using namespace std;
 using namespace cv;
 
-// the main() function is the entry point for all C++ programs
+
+vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade);
+
+// instructions for building our own Haar cascade
+// http://note.sonots.com/SciSoftware/haartraining.html
+string carCascadeFile = "cars.xml";
+CascadeClassifier carCascade;
+
+
 int main(int argc, char* argv[])
 {
-    //cout is the command to print things to the command line in C++
-    //endl inserts an end of line character / line break
-    cout<<"Hello CS585!"<<endl;
+	// cascade code from HW7P2
+	if (!carCascade.load(carCascadeFile)) {
+		// TODO: Proper error handling
+		printf("ERROR: Could not open car cascade file.\n");
+		return -1; 
+	}
 
-    //Mat is the OpenCV container for images and matrices
-    Mat image;
+	int counter = 0;
+	while (counter < 114) {
+		String filename = "./data/0000000";
 
-    //imread is the OpenCV function for reading images from a file
-    image = imread("HelloCS585.jpg"); 
+		if (counter < 10) {
+			filename += "00" + to_string(counter);
+		} else if (counter < 100) {
+			filename += "0" + to_string(counter);
+		} else {
+			filename += to_string(counter);
+		}
 
-    //namedWindow is the OpenCV function for creating a new window
-    namedWindow( "Image View", 1 );
+		filename += ".png";
+		cout << filename;
 
-    //imshow is the OpenCV command for display an image in a window. 
-    //The arguments are the name of the window, used with the namedWindow() function, 
-    //and the image data, in a Mat structure
-    imshow("Image View", image);
-    char key = waitKey(0);
+		Mat frame;
+		frame = imread(filename, 0);
 
-    //Using cout, different types of output can be chained together using the << operator
-    cout<<"You pressed "<<key<<"."<<endl;
+		vector<Rect> cars;
+		cars = detectCars(frame, carCascade);
 
-    //in C++, main returns an integer, which is usually 0 by convention
-    return 0;
+		for( size_t i = 0; i < cars.size(); i++ ) {
+			Point center( cars[i].x + cars[i].width*0.5, cars[i].y + cars[i].height*0.5 );
+			ellipse( frame, center, Size( cars[i].width*0.5, cars[i].height*0.5), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
+			Mat carROI = frame( cars[i] );
+			// draw rect on frame
+		}
+
+		imshow("Frame", frame);
+		if (waitKey(10) == 'q')
+			break;
+		counter++;
+	}
 }
+
+vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade) {
+	vector<Rect> cars;
+	Mat grayImage;
+	image.copyTo(grayImage);
+	equalizeHist (grayImage, grayImage);
+	carCascade.detectMultiScale(grayImage, cars, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
+	return cars;
+}
+
 
