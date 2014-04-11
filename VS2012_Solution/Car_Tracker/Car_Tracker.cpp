@@ -11,9 +11,8 @@
 using namespace std;
 using namespace cv;
 
-void applyCascade (Mat& frame);
-void getClassifier (String filename, CascadeClassifier& carCascade);
-vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade);
+vector<Rect> detectCars (Mat& frame);
+void drawCascade (Mat& frame, vector<Rect> cars);
 
 int main(int argc, char* argv[]) {
 	int frame_counter = 0;
@@ -42,7 +41,8 @@ int main(int argc, char* argv[]) {
 		Mat frame;
 		frame = imread(filename, 0);
 		
-		applyCascade(frame);
+		vector<Rect> cars = detectCars(frame);
+		drawCascade(frame, cars);
 
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
@@ -51,17 +51,27 @@ int main(int argc, char* argv[]) {
 	}
 }
 
-void applyCascade (Mat& frame) {
-	
+vector<Rect> detectCars (Mat& frame) {
+
 	// instructions for building our own Haar cascade
 	// http://note.sonots.com/SciSoftware/haartraining.html
 
-	vector<Rect> cars;
 	CascadeClassifier carCascade;
-	
-	getClassifier ("cars.xml", carCascade);
-	cars = detectCars(frame, carCascade);
+	String filename = "cars.xml";
+	if (!carCascade.load(filename)) {
+		// TODO: Proper error handling
+		printf("ERROR: Could not open car cascade file.\n");
+	}
 
+	vector<Rect> cars;
+	Mat grayImage;
+	frame.copyTo(grayImage);
+	equalizeHist (grayImage, grayImage);
+	carCascade.detectMultiScale(grayImage, cars, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
+	return cars;
+}
+
+void drawCascade (Mat& frame, vector<Rect> cars) {
 	for( size_t i = 0; i < cars.size(); i++ ) {
 		int halfWidth = (cars[i].width)/2;
 		int halfHeight = (cars[i].height)/2;
@@ -69,21 +79,5 @@ void applyCascade (Mat& frame) {
 		ellipse( frame, center, Size( halfWidth, halfHeight), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
 		Mat carROI = frame( cars[i] );
 		// draw rect on frame
-	}
-}
-
-vector<Rect> detectCars (Mat& image, CascadeClassifier& carCascade) {
-	vector<Rect> cars;
-	Mat grayImage;
-	image.copyTo(grayImage);
-	equalizeHist (grayImage, grayImage);
-	carCascade.detectMultiScale(grayImage, cars, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
-	return cars;
-}
-
-void getClassifier (String filename, CascadeClassifier& carCascade) {
-	if (!carCascade.load(filename)) {
-		// TODO: Proper error handling
-		printf("ERROR: Could not open car cascade file.\n");
 	}
 }
