@@ -1,0 +1,11 @@
+So the GPS and other sensors store their data in a length 30 vector(found in the data folder under OXT). 
+This data has a breakdown text file called data format, which details what each element is.
+
+The way I see it, finding the velocity is going to come down to one of two options:
+
+1. Length of the three-dimensional vector of north-east-"up" velocities.
+2. Length of the six-dimensional vector of north-east-"up", plus 3 more velocities involving the cars relationship to earth in general.
+
+I don't believe we will need the acceleration data, as the article 
+http://www.oxts.com/technical-notes/rt3000-vs-gps-only-speed-comparison/
+shows that the velocity is calculated using the acceleration. 
