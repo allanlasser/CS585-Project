@@ -9,3 +9,8 @@ The way I see it, finding the velocity is going to come down to one of two optio
 I don't believe we will need the acceleration data, as the article 
 http://www.oxts.com/technical-notes/rt3000-vs-gps-only-speed-comparison/
 shows that the velocity is calculated using the acceleration. 
+
+
+After reviewing as best I could the link Diane provided, I still think that our best approach
+is to use the velocity data from the GPS, combined with the vectors from the optical flow
+to calculate the velocities of the other cars. 
