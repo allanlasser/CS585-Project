@@ -15,13 +15,7 @@ Quick Git tutorial available at: http://learnxinyminutes.com/docs/git/
 
 # Datasets
 
-So far there's three datasets:
-
-* MIT Traffic Dataset
-* QMUL Traffic Junction Dataset
-* Traffic Light Recognition (TLR) Dataset
-
-They are too big for my free GitHub account, so download the folder from dropbox: https://db.tt/g2uR97ah
+We will be using the [KITTI dataset](http://www.cvlibs.net/datasets/kitti/).
 
 # Proposals
 
@@ -32,3 +26,7 @@ Organized in terms of difficulty:
 * Counting automobiles
 * Counting automobiles by size or color
 * Traffic analysis
+
+# References
+
+[This digital textbook](http://packtlib.packtpub.com/library/9781849517829/ch04) has good explanations for deducing speed from multiple frames, and other helpful calculations.
