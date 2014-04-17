@@ -8,7 +8,7 @@ Group project for CS585, Computer Vision.
 * March 24: Project Progress Report Due
 * April 21: Project Peer Review
 * April 28: Project Presentation
-
+* May 3: Written Report Due
 # Git
 
 Quick Git tutorial available at: http://learnxinyminutes.com/docs/git/
