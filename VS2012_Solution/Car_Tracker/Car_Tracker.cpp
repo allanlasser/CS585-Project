@@ -12,6 +12,8 @@ using namespace std;
 using namespace cv;
 
 vector<Rect> detectCars (Mat& frame);
+Rect getROI (Point& point, Size patchSize, Size imageSize, int searchRadius);
+Rect trackTemplate (Point& point, Rect& patch, Mat& image, int searchRadius);
 void drawCascade (Mat& frame, vector<Rect> cars);
 
 int main(int argc, char* argv[]) {
@@ -19,6 +21,8 @@ int main(int argc, char* argv[]) {
 	int frame_total = 300;
 	String frame_folder = "./data/video/data/";
 	String frame_filetype = ".png";
+
+	vector<Rect> cars;
 
 	while (frame_counter < frame_total) {
 		// Read current image as video frame
@@ -41,7 +45,16 @@ int main(int argc, char* argv[]) {
 		Mat frame;
 		frame = imread(filename, 0);
 		
-		vector<Rect> cars = detectCars(frame); // this is the core fuction
+		if (frame_counter % 3 == 0) {
+			cars = detectCars(frame); // this is the core fuction
+		} else {
+			for (int i = 0; i < cars.size(); i++) {
+				// cout << cars[i] << " --> ";
+				cars[i] = trackTemplate(cars[i].tl(), cars[i], frame, 100);
+				// cout << cars[i] << "\n";
+			}
+		}
+		
 		drawCascade(frame, cars); // this is accessory a.k.a. delete whenevs yo
 
 		imshow("Frame", frame);
@@ -52,9 +65,6 @@ int main(int argc, char* argv[]) {
 }
 
 vector<Rect> detectCars (Mat& frame) {
-
-	// instructions for building our own Haar cascade
-	// http://note.sonots.com/SciSoftware/haartraining.html
 
 	String filename = "cascade.xml";
 	CascadeClassifier carCascade;
@@ -70,6 +80,47 @@ vector<Rect> detectCars (Mat& frame) {
 	equalizeHist (grayImage, grayImage);
 	carCascade.detectMultiScale(grayImage, cars, 1.1, 6, 0|CV_HAAR_SCALE_IMAGE, Size(30, 20));
 	return cars;
+}
+
+Rect getROI (Point& point, Size patchSize, Size imageSize, int searchRadius) {
+	
+	Point TL, BR; // TL: top left; BR: bottom right
+	TL = Point(point.x-searchRadius, point.y-searchRadius);
+	BR = Point(point.x+patchSize.width+searchRadius, point.y+patchSize.height+searchRadius);
+
+	// Check if the ROI will go out of bounds on the image
+	if (TL.x < 0)
+		TL.x = 0;
+	if (TL.y < 0)
+		TL.y = 0;
+	if (BR.x > imageSize.width)
+		BR.x = imageSize.width;
+	if (BR.y > imageSize.height)
+		BR.y = imageSize.height;
+
+	return Rect(TL, BR);
+}
+
+Rect trackTemplate (Point& point, Rect& patch, Mat& image, int searchRadius) {
+
+	Size patchSize = patch.size();
+	Size imageSize = image.size();
+	Rect searchArea = getROI(point, patchSize, imageSize, searchRadius);
+
+	Mat search = image(searchArea);
+	Mat templ = image(patch);
+	Mat result = Mat::zeros(Size(search.cols - patch.width + 1, search.rows - patch.height +1), CV_32FC1);
+
+	matchTemplate(search, templ, result, CV_TM_CCORR_NORMED);
+	
+	// find maximum in result
+	double minVal, maxVal;
+	Point minLoc, maxLoc; // match = max
+	minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
+
+	Point matchLoc = searchArea.tl() + maxLoc;
+	
+	return getROI(matchLoc, patchSize, imageSize, 0);
 }
 
 void drawCascade (Mat& frame, vector<Rect> cars) {
