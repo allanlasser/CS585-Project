@@ -1,3 +1,30 @@
+Super PseudoCode:
+
+for(each frame){
+	vector<double> GPS = read_data_for_frame
+	double cameraVelocity = length(GPS(4,5,6)) //need to double check these numbers
+	double cameraTime = convert timestamp to same format as velocity(I believe hours)
+	double cameraDistance = cameraVelocity/cameraTime
+	
+	vector<Rect> carsFound = ; //whatever we do for that
+	vector<Rect> flowOfCarsFound =; //same deal
+	 
+	Rect frontOfCar = (shoudl be roughly the front of the car, say, middle fifth of the x, lowest quarter of the y
+
+	Mat opFlow = ;//assumeing you guys are covereing that part
+
+	Mat focRegion = opFlow(frontOfCar);
+
+	double pixelVelocity = avg(focRegion); //not sure the correct syntax
+	double realToImage = pixelVelocity/cameraVelocity;
+
+	vector<float> speedLabels;
+	for(each rect in Cars Found){
+		speedLabels(of that index) = avg(flowOfCarsFound(at that index)) * realToImage;
+	}
+}
+
+
 So the GPS and other sensors store their data in a length 30 vector(found in the data folder under OXT). 
 This data has a breakdown text file called data format, which details what each element is.
 
@@ -13,4 +40,39 @@ shows that the velocity is calculated using the acceleration.
 
 After reviewing as best I could the link Diane provided, I still think that our best approach
 is to use the velocity data from the GPS, combined with the vectors from the optical flow
-to calculate the velocities of the other cars. 
+to calculate the velocities of the other cars.
+
+
+IDEA FOR VELOCITY CALCULATION
+
+So, in order to calculate the velocity of the other cars, we need to know, based on simple 
+physics, the distance they covered and the time it took them to cover that distance, or enough 
+information to do a ratio. 
+
+For the main vehicle(where the camera is mounted), we have the velocity due to the measurements.
+We also have the time between each frame, as every batch of data is timestamped, so extracting the distance is 
+possible. Therefore, we can extract the distance covered trivially.
+
+The next step would be to convert all that knowledge into a vector comparable to the 
+optical flow vectors so that we can find the road--the unmoving object. 
+
+For images in a video, we're looking at time = #of frames, distance = pixels, speed = pixels/frames
+Since we'll be doing this frame by frame, distance=speed(denominator is 1)
+
+distance/time = distance/over
+so the extracted distance from before...
+
+real distance/real time = pixel distance/1
+
+pixel distance * real time = real distance
+pixel distance = realdistance/real time
+
+We're ignoring the distance issue by restricting the classifier.
+
+What we'll need to do is average the optical flow 
+in the lower piece of the image in the center, 
+roughly directly in front of the car. 
+We'll use this as the reverse of the 
+cars vector in regards to the optical flow of the image.
+ Once we have that, we can set up a ratio of real-image velocities
+, and label the other cars. 
