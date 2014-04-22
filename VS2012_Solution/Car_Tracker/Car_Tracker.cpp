@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
 		Mat frame;
 		frame = imread(filename, 0);
 		
+
 		if (frame_counter % 3 == 0) {
 			cars = detectCars(frame); // this is the core fuction
 		} else {
