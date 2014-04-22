@@ -16,8 +16,8 @@ void drawCascade (Mat& frame, vector<Rect> cars);
 
 int main(int argc, char* argv[]) {
 	int frame_counter = 0;
-	int frame_total = 114;
-	String frame_folder = "./data/";
+	int frame_total = 300;
+	String frame_folder = "./data/video/data/";
 	String frame_filetype = ".png";
 
 	while (frame_counter < frame_total) {
@@ -41,8 +41,8 @@ int main(int argc, char* argv[]) {
 		Mat frame;
 		frame = imread(filename, 0);
 		
-		vector<Rect> cars = detectCars(frame);
-		drawCascade(frame, cars);
+		vector<Rect> cars = detectCars(frame); // this is the core fuction
+		drawCascade(frame, cars); // this is accessory a.k.a. delete whenevs yo
 
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
@@ -56,28 +56,26 @@ vector<Rect> detectCars (Mat& frame) {
 	// instructions for building our own Haar cascade
 	// http://note.sonots.com/SciSoftware/haartraining.html
 
+	String filename = "cascade.xml";
 	CascadeClassifier carCascade;
-	String filename = "cars.xml";
+
 	if (!carCascade.load(filename)) {
 		// TODO: Proper error handling
-		printf("ERROR: Could not open car cascade file.\n");
+		printf("ERROR: Could not open cascade file.\n");
 	}
 
 	vector<Rect> cars;
 	Mat grayImage;
 	frame.copyTo(grayImage);
 	equalizeHist (grayImage, grayImage);
-	carCascade.detectMultiScale(grayImage, cars, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
+	carCascade.detectMultiScale(grayImage, cars, 1.1, 6, 0|CV_HAAR_SCALE_IMAGE, Size(30, 20));
 	return cars;
 }
 
 void drawCascade (Mat& frame, vector<Rect> cars) {
 	for( size_t i = 0; i < cars.size(); i++ ) {
-		int halfWidth = (cars[i].width)/2;
-		int halfHeight = (cars[i].height)/2;
-		Point center( cars[i].x + halfWidth, cars[i].y + halfHeight );
-		ellipse( frame, center, Size( halfWidth, halfHeight), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
-		Mat carROI = frame( cars[i] );
-		// draw rect on frame
+		Point topLeft = Point(cars[i].x, cars[i].y);
+		Point bottomRight = Point(cars[i].x+cars[i].width, cars[i].y+cars[i].height);
+		rectangle(frame, topLeft, bottomRight, Scalar(255, 255, 255), 2, 8, 0);
 	}
 }
