@@ -13,8 +13,9 @@ using namespace cv;
 
 vector<Rect> detectCars (Mat& frame);
 Rect getROI (Point& point, Size patchSize, Size imageSize, int searchRadius);
-Rect trackTemplate (Point& point, Rect& patch, Mat& image, int searchRadius);
-void drawCascade (Mat& frame, vector<Rect> cars);
+Rect trackTemplate (Point& point, Mat& patch, Mat& image, int searchRadius);
+vector<Mat> getPatches (Mat& frame, vector<Rect> cars);
+void drawDetections (Mat& frame, vector<Rect> cars);
 
 int main(int argc, char* argv[]) {
 	int frame_counter = 0;
@@ -22,7 +23,8 @@ int main(int argc, char* argv[]) {
 	String frame_folder = "./data/video/data/";
 	String frame_filetype = ".png";
 
-	vector<Rect> cars;
+	vector<Rect> cars; // stores ROI for detected cars
+	vector<Mat> prevFrame; // stores frames from last iteration for template tracking
 
 	while (frame_counter < frame_total) {
 		// Read current image as video frame
@@ -44,19 +46,19 @@ int main(int argc, char* argv[]) {
 
 		Mat frame;
 		frame = imread(filename, 0);
-		
-
-		if (frame_counter % 3 == 0) {
-			cars = detectCars(frame); // this is the core fuction
+				
+		/* Start Car Tracking */
+		if (frame_counter % 7 == 0) {
+			cars = detectCars(frame); // this is the feature detection tracking
 		} else {
-			for (int i = 0; i < cars.size(); i++) {
-				// cout << cars[i] << " --> ";
-				cars[i] = trackTemplate(cars[i].tl(), cars[i], frame, 100);
-				// cout << cars[i] << "\n";
+			for (size_t i = 0; i < cars.size(); i++) {
+				cars[i] = trackTemplate(cars[i].tl(), prevFrame[i], frame, 100); // this is the updating-template tracking
 			}
 		}
+		prevFrame = getPatches(frame, cars);
+		/* End Car Tracking */
 		
-		drawCascade(frame, cars); // this is accessory a.k.a. delete whenevs yo
+		drawDetections(frame, cars); // this is accessory a.k.a. delete whenevs yo
 
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
@@ -102,17 +104,16 @@ Rect getROI (Point& point, Size patchSize, Size imageSize, int searchRadius) {
 	return Rect(TL, BR);
 }
 
-Rect trackTemplate (Point& point, Rect& patch, Mat& image, int searchRadius) {
+Rect trackTemplate (Point& point, Mat& patch, Mat& image, int searchRadius) {
 
 	Size patchSize = patch.size();
 	Size imageSize = image.size();
 	Rect searchArea = getROI(point, patchSize, imageSize, searchRadius);
 
 	Mat search = image(searchArea);
-	Mat templ = image(patch);
-	Mat result = Mat::zeros(Size(search.cols - patch.width + 1, search.rows - patch.height +1), CV_32FC1);
+	Mat result = Mat::zeros(Size(search.cols - patchSize.width + 1, search.rows - patchSize.height +1), CV_32FC1);
 
-	matchTemplate(search, templ, result, CV_TM_CCORR_NORMED);
+	matchTemplate(search, patch, result, CV_TM_CCORR_NORMED);
 	
 	// find maximum in result
 	double minVal, maxVal;
@@ -124,7 +125,16 @@ Rect trackTemplate (Point& point, Rect& patch, Mat& image, int searchRadius) {
 	return getROI(matchLoc, patchSize, imageSize, 0);
 }
 
-void drawCascade (Mat& frame, vector<Rect> cars) {
+vector<Mat> getPatches (Mat& frame, vector<Rect> cars) {
+	vector<Mat> ret;
+	for (size_t i = 0; i < cars.size(); i++){
+		ret.push_back(Mat());
+		frame(cars[i]).copyTo(ret.back());
+	}
+	return ret;
+}
+
+void drawDetections (Mat& frame, vector<Rect> cars) {
 	for( size_t i = 0; i < cars.size(); i++ ) {
 		Point topLeft = Point(cars[i].x, cars[i].y);
 		Point bottomRight = Point(cars[i].x+cars[i].width, cars[i].y+cars[i].height);
