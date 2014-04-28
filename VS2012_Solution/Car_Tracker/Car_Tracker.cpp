@@ -31,6 +31,8 @@ vector<float> getTimeStampsVideo();
 void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle);
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
                     double, const Scalar& color);
+vector<Mat> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow);
+Mat getOptFlowROI(Rect ROI, Mat flow);
 /* end optical flow stuff */
 
 int main(int argc, char* argv[]) {
@@ -303,6 +305,24 @@ calcOpticalFlowVector(ROI, frame, frame) {
 getAllOpticalFlow(Vector<ROIs>, frame, frame) {
 }
 */
+
+Mat getOptFlowROI(Rect ROI, Mat flow)
+{
+	Mat flowROI;
+	flow(ROI).copyTo(flowROI);
+	return flowROI;
+}
+
+vector<Mat> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow)
+{
+	vector<Mat> flowROIs;
+	for (size_t i = 0; i < ROIs.size(); i++) {
+		flowROIs.push_back(getOptFlowROI(ROIs[i], flow));
+	}
+	return flowROIs;
+}
+
+Rect 
 
 // copied from OpenCV sample fback.cpp
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
