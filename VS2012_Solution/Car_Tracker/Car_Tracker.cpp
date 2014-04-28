@@ -322,7 +322,32 @@ vector<Mat> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow)
 	return flowROIs;
 }
 
-Rect 
+Point2d getAverageFlow(Mat flowROI)
+{
+	float x = 0;
+	float y = 0;
+	int count = 0;
+
+	int channels = flowROI.channels();
+    for(int row=0; row<flowROI.rows; row++)
+    {
+        //the index for the start of the row is only calculated once per row
+        int rowIndex = row*flowROI.step[0];
+        for(int col=0; col<flowROI.cols; col++)
+        {
+            int index = rowIndex + col*channels + 0; // channel 0 = x, channel 1 = y
+			x += flowROI.data[index];
+			y += flowROI.data[index+1];
+			count++;
+        }
+    }
+
+	x /= count;
+	y /= count;
+
+	return Point(x,y);
+
+}
 
 // copied from OpenCV sample fback.cpp
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
