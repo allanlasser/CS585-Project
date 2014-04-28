@@ -299,12 +299,19 @@ vector<float> getTimeStampsVideo(){
  */
 
 /*
-calcOpticalFlowVector(ROI, frame, frame) {
-}
-
-getAllOpticalFlow(Vector<ROIs>, frame, frame) {
-}
+Still to do:
+get car rectangle
 */
+
+Rect getRoadRect(Mat image) 
+{
+	int width = image.cols;
+	int height = image.rows;
+
+	return Rect(50,height-50,width/2,height/2);
+
+	// NOT FINISHED
+}
 
 Mat getOptFlowROI(Rect ROI, Mat flow)
 {
