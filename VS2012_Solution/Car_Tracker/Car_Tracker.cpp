@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <string>
 #include <vector>
+#include "opencv2/opencv.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -19,11 +20,18 @@ vector<Mat> getPatches (Mat& frame, vector<Rect> cars);
 void drawDetections (Mat& frame, vector<Rect> cars);
 
 /*camera speeed stuff*/
+float length(float x, float y);
 vector<float> getCarSpeeds(vector<Rect> cars, int &counter, int frame);
 float getCameraSpeed(int &counter, int frame);
 vector<float> getTimeStampsGPS();
 vector<float> getTimeStampsVideo();
 /*end camera speed stuff*/
+
+/* optical flow stuff */
+void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle);
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color);
+/* end optical flow stuff */
 
 int main(int argc, char* argv[]) {
 	int frame_counter = 0;
@@ -33,6 +41,12 @@ int main(int argc, char* argv[]) {
 
 	vector<Rect> cars; // stores ROI for detected cars
 	vector<Mat> prevFrame; // stores frames from last iteration for template tracking
+
+	/* optical flow mats */
+	Mat flow, cflow, magnitude, angle;
+	Mat gray_old, gray_new;
+	vector<Mat> carOptFlow;
+	namedWindow( "flow", 1 );
 
 	while (frame_counter < frame_total) {
 		// Read current image as video frame
@@ -54,6 +68,7 @@ int main(int argc, char* argv[]) {
 
 		Mat frame;
 		frame = imread(filename, 0);
+		frame.copyTo(cflow);
 				
 		/* Start Car Tracking */
 		if (frame_counter % 7 == 0) {
@@ -66,11 +81,30 @@ int main(int argc, char* argv[]) {
 		prevFrame = getPatches(frame, cars);
 		/* End Car Tracking */
 		
-		drawDetections(frame, cars); // this is accessory a.k.a. delete whenevs yo
+		drawDetections(frame, cars); // this is accessory 
+
+
+
+		/* Calculate optical flow each frame */
+		frame.copyTo(gray_new);
+        if(frame_counter > 1)
+        {
+            calcOpticalFlowFarneback(gray_old, gray_new, flow, 0.5, 3, 15, 3, 5, 1.2, 0);
+            opticalFlowMagnitudeAngle(flow, magnitude, angle);
+
+			drawOptFlowMap(flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
+	        imshow("flow", cflow);
+
+        }
+		/* end optical flow calculation */
+
+
 
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
 			break;
+		
+		gray_new.copyTo(gray_old); // for optical flow
 		frame_counter++;
 	}
 }
@@ -150,6 +184,7 @@ void drawDetections (Mat& frame, vector<Rect> cars) {
 	}
 }
 
+/*
 vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frame){
 	float ratio = getCameraSpeed(counter,frame);		 
 
@@ -255,4 +290,96 @@ vector<float> getTimeStampsVideo(){
 	}
 
 	return timeStamps;
+}
+
+/*
+ * Calculating Optical Flow Vectors
+ */
+
+/*
+calcOpticalFlowVector(ROI, frame, frame) {
+}
+
+getAllOpticalFlow(Vector<ROIs>, frame, frame) {
+}
+*/
+
+// copied from OpenCV sample fback.cpp
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color)
+{
+    // Optical flow is stored as two-channel floating point array in a Mat
+    // of type CV_32FC2
+    for(int y = 0; y < cflowmap.rows; y += step)
+	{
+        for(int x = 0; x < cflowmap.cols; x += step)
+        {
+            //Get the flow vector as a Point2f object
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+
+            // Draw a line from the image point using the flow vector
+            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+                 color);
+            //circle(cflowmap, Point(x,y), 2, color, -1);
+        }
+	}
+}
+
+
+//Required: Using the drawOptFlowMap function as inspiration, compute the magnitude and angle
+//of every point in the flow field so it can be visualized 
+//Your angles should be in degrees (atan2 returns radians) and they should go from -180 to 180.
+void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle)
+{
+    if(magnitude.rows != flow.rows || magnitude.cols != flow.cols)
+    {
+        magnitude.create(flow.rows, flow.cols, CV_32FC1);
+    }
+    if(angle.rows != flow.rows || angle.cols != flow.cols)
+    {
+        angle.create(flow.rows, flow.cols, CV_32FC1);
+    }
+
+	Mat xy[2];
+	split(flow, xy);
+	cartToPolar(xy[0], xy[1], magnitude, angle, true);
+
+}
+
+//Given: Function to visualize the magnitude and orientation of the flow field
+//The magnitude needs to be normalized for visualization. On my test video, the flow was not more than 10.
+//You may want to adjust the maximum flow or computer it automatically
+void visualizeFlow(const Mat& magnitude, const Mat& angle, Mat& magnitude8UC1, Mat& angle8UC3)
+{
+    if(magnitude8UC1.rows != magnitude.rows || magnitude8UC1.cols != magnitude.cols || magnitude8UC1.type() != CV_8UC3)
+    {
+        magnitude8UC1.create(magnitude.rows, magnitude.cols, CV_8UC1);
+    }
+    if(angle8UC3.rows != angle.rows || angle8UC3.cols != angle.cols || angle8UC3.type() != CV_8UC3)
+    {
+        angle8UC3.create(angle.rows, angle.cols, CV_8UC3);
+    }
+
+    double minMag, maxMag;
+    //minMaxLoc(magnitude, &minMag, &maxMag); //to automatically compute the maximum
+    minMag = 0;
+    maxMag = 10; // your mileage my vary
+
+    Mat tempMagnitude;
+    tempMagnitude = (magnitude - minMag)/(maxMag-minMag)*255;
+    tempMagnitude.convertTo(magnitude8UC1, CV_8UC1);
+
+    //Going to create a rainbow image where the hue correspondes to the angle
+    for(int y=0; y<angle.rows; y++)
+    {
+        unsigned char* rowPtr = angle8UC3.ptr<unsigned char>(y);
+        for(int x=0; x<angle.cols; x++)
+        {
+            int index = x*3;
+            rowPtr[index] = (angle.at<float>(y,x)+180)/2.0;
+            rowPtr[index+1] = 128; //don't use full saturation or you'll go blind.
+            rowPtr[index+2] = 196;
+        }
+    }
+    cvtColor(angle8UC3, angle8UC3, CV_HSV2BGR);
 }
