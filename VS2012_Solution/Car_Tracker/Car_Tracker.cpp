@@ -38,6 +38,8 @@ vector<Point2d> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow);
 Mat getOptFlowROI(Rect ROI, Mat flow);
 Rect getRoadRect(Mat image);
 Point2d getAverageFlow(Mat flow, Rect ROI);
+static void drawAverageFlowVectors(const Mat& flow, Mat& frame, vector<Rect> cars, vector<Point2d> avgs);
+Point2d getRoadAvgVector(Rect road, Mat flow);
 /* end optical flow stuff */
 
 int main(int argc, char* argv[]) {
@@ -78,7 +80,7 @@ int main(int argc, char* argv[]) {
 		frame.copyTo(cflow);
 				
 		/* Start Car Tracking */
-		if (frame_counter % 7 == 0) {
+		if (frame_counter % 5 == 0) {
 			cars = detectCars(frame); // this is the feature detection tracking
 		} else {
 			for (size_t i = 0; i < cars.size(); i++) {
@@ -91,8 +93,6 @@ int main(int argc, char* argv[]) {
 		drawDetections(frame, cars); // this is accessory 
 
 
-
-
 		/* Calculate optical flow each frame */
 		frame.copyTo(gray_new);
         if(frame_counter > 1)
@@ -103,13 +103,15 @@ int main(int argc, char* argv[]) {
 			//drawOptFlowMap(flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
 	        //imshow("flow", cflow);
 
+			/* cars */
 			drawDetectionFlows(frame, flow, cars, CV_RGB(0, 255, 0));
+			vector<Point2d> averages = gatherOptFlowVectors(cars, flow);
+			drawAverageFlowVectors(flow, frame, cars, averages);
+
+			/* road */
 			Rect road = getRoadRect(frame);
 			drawOptFlowMapROI(flow, frame, road, 16, 1.5, CV_RGB(0, 255, 0));
-
-			vector<Point2d> averages = gatherOptFlowVectors(cars, flow);
-			cout << averages;
-
+			Point2d roadAverages = getRoadAvgVector(road, flow);
 
         }
 		/* end optical flow calculation */
@@ -125,6 +127,9 @@ int main(int argc, char* argv[]) {
 	}
 }
 
+/* 
+ * START CAR DETECTION CODE 
+ */
 vector<Rect> detectCars (Mat& frame) {
 
 	String filename = "cascade.xml";
@@ -199,9 +204,211 @@ void drawDetections (Mat& frame, vector<Rect> cars) {
 		rectangle(frame, topLeft, bottomRight, Scalar(255, 255, 255), 2, 8, 0);
 	}
 }
+/* END CAR DETECTION CODE */
+
+
+
 
 
 /*
+ * START OPTICAL FLOW VECTORS CODE
+ */
+
+Rect getRoadRect(Mat image) 
+{
+	int width = image.cols;
+	int height = image.rows;
+
+	Rect road = Rect(width/6,height-50,width*2/3,50);
+	//cout << road;
+	return road;
+}
+
+Mat getOptFlowROI(Rect ROI, Mat flow)
+{
+	Mat flowROI;
+	flow(ROI).copyTo(flowROI);
+	return flowROI;
+}
+
+Point2d getRoadAvgVector(Rect road, Mat flow)
+{
+	float xa = 0;
+	float ya = 0;
+	int count = 0;
+	int step = 16;
+
+
+	int left_max = road.x + (road.width/3);
+	int right_min = road.x + (road.width*2/3);
+
+	for(int y = road.y; y < road.y+road.height; y += step)
+	{
+        for(int x = road.x; x < road.x+road.width; x += step)
+        {
+            //Get the flow vector as a Point2f object
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+			
+			if (x < left_max || x > right_min)
+			{
+				xa += fxy.x;
+				ya += fxy.y;
+				count++;
+			}
+        }
+	}
+
+	xa /= count;
+	ya /= count;
+	return Point(xa,ya);
+
+}
+
+vector<Point2d> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow)
+{
+	vector<Point2d> flowROIs;
+	for (size_t i = 0; i < ROIs.size(); i++) {
+		Point2d avg = getAverageFlow(flow, ROIs[i]);
+		flowROIs.push_back(avg);
+		cout<<avg;
+	}
+	return flowROIs;
+}
+
+Point2d getAverageFlow(Mat flow, Rect ROI)
+{
+	float xa = 0;
+	float ya = 0;
+	int count = 0;
+	int step = 16;
+	int weight = 2;
+
+	int min_weight_x;
+	int max_weight_x;
+	int min_weight_y;
+	int max_weight_y;
+
+	min_weight_x = ROI.width/3;
+	max_weight_x = ROI.width*2/3;
+	min_weight_y = ROI.height/3;
+	max_weight_y = ROI.height*2/3;
+
+	for(int y = ROI.y; y < ROI.y+ROI.height; y += step)
+	{
+        for(int x = ROI.x; x < ROI.x+ROI.width; x += step)
+        {
+            //Get the flow vector as a Point2f object
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+			/*
+			if (x >= min_weight_x && x <= max_weight_x && y >= min_weight_y && y <= max_weight_y) 
+			{
+				xa += weight*fxy.x;
+				ya += weight*fxy.y;
+				count += weight;
+			}else
+			{
+				xa += fxy.x;
+				ya += fxy.y;
+				count++;
+			}
+			*/
+			xa += fxy.x;
+			ya += fxy.y;
+			count++;
+        }
+	}
+
+	xa /= count;
+	ya /= count;
+
+	return Point(xa,ya);
+}
+
+static void drawAverageFlowVectors(const Mat& flow, Mat& frame, vector<Rect> cars, vector<Point2d> avgs)
+{
+	for( size_t i = 0; i < cars.size(); i++ ) {
+		Point middle = Point(cars[i].width/2, cars[i].height/2);
+		Point frame_middle = Point(cars[i].x + middle.x, cars[i].y + middle.y);
+		Point line_end = Point(frame_middle.x + avgs[i].x, frame_middle.y + avgs[i].y);
+		line(frame, frame_middle, line_end, Scalar(255, 255, 255), 2);
+	}
+}
+
+// copied from OpenCV sample fback.cpp
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color)
+{
+    // Optical flow is stored as two-channel floating point array in a Mat
+    // of type CV_32FC2
+    for(int y = 0; y < cflowmap.rows; y += step)
+	{
+        for(int x = 0; x < cflowmap.cols; x += step)
+        {
+            //Get the flow vector as a Point2f object
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+
+            // Draw a line from the image point using the flow vector
+            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+                 color);
+        }
+	}
+}
+
+// copied from OpenCV sample fback.cpp
+static void drawOptFlowMapROI(const Mat& flow, Mat& cflowmap, Rect ROI, int step,
+                    double, const Scalar& color)
+{
+    // Optical flow is stored as two-channel floating point array in a Mat
+    // of type CV_32FC2
+    for(int y = ROI.y; y < ROI.y+ROI.height; y += step)
+	{
+        for(int x = ROI.x; x < ROI.x+ROI.width; x += step)
+        {
+            //Get the flow vector as a Point2f object
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+
+            // Draw a line from the image point using the flow vector
+            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+                 color);
+        }
+	}
+}
+
+void drawDetectionFlows (Mat& frame, Mat&flow, vector<Rect> cars, const Scalar& color) 
+{
+	for( size_t i = 0; i < cars.size(); i++ ) 
+	{
+		//circle(frame, Point(cars[i].x, cars[i].y), 40, color, -1);
+		drawOptFlowMapROI(flow, frame, cars[i], 16, 1.5, CV_RGB(0, 255, 0));
+	}
+}
+
+void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle)
+{
+    if(magnitude.rows != flow.rows || magnitude.cols != flow.cols)
+    {
+        magnitude.create(flow.rows, flow.cols, CV_32FC1);
+    }
+    if(angle.rows != flow.rows || angle.cols != flow.cols)
+    {
+        angle.create(flow.rows, flow.cols, CV_32FC1);
+    }
+
+	Mat xy[2];
+	split(flow, xy);
+	cartToPolar(xy[0], xy[1], magnitude, angle, true);
+
+}
+/* END OPTICAL FLOW CODE*/
+
+
+
+
+
+
+/*
+ * START SPEED MATH CODE
+ */
 vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frame){
 	float ratio = getCameraSpeed(counter,frame);		 
 
@@ -211,6 +418,7 @@ vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frame){
 	for( size_t i = 0; i < cars.size(); i++ ){
 		speedLabels.at(i) = mean(opticalFlow(cars.at(i)))[0] * ratio;
 	}
+	return speedLabels;
 }
 
 
@@ -307,179 +515,4 @@ vector<float> getTimeStampsVideo(){
 	}
 
 	return timeStamps;
-}
-
-/*
- * Calculating Optical Flow Vectors
- */
-
-/*
-Still to do:
-get car rectangle
-*/
-
-Rect getRoadRect(Mat image) 
-{
-	int width = image.cols;
-	int height = image.rows;
-
-	Rect road = Rect(width/6,height-50,width*2/3,50);
-	//cout << road;
-	return road;
-
-	// NOT FINISHED
-}
-
-Mat getOptFlowROI(Rect ROI, Mat flow)
-{
-	Mat flowROI;
-	flow(ROI).copyTo(flowROI);
-	return flowROI;
-}
-
-vector<Point2d> gatherOptFlowVectors(vector<Rect> ROIs, Mat flow)
-{
-	vector<Point2d> flowROIs;
-	for (size_t i = 0; i < ROIs.size(); i++) {
-		Point2d avg = getAverageFlow(flow, ROIs[i]);
-		flowROIs.push_back(avg);
-		cout<<avg;
-	}
-	return flowROIs;
-}
-
-Point2d getAverageFlow(Mat flow, Rect ROI)
-{
-	float xa = 0;
-	float ya = 0;
-	int count = 0;
-	int step = 16;
-
-	for(int y = ROI.y; y < ROI.y+ROI.height; y += step)
-	{
-        for(int x = ROI.x; x < ROI.x+ROI.width; x += step)
-        {
-            //Get the flow vector as a Point2f object
-            const Point2f& fxy = flow.at<Point2f>(y, x);
-
-            xa += x;
-			ya += y;
-			count++;
-        }
-	}
-
-	xa /= count;
-	ya /= count;
-
-	return Point(xa,ya);
-}
-
-// copied from OpenCV sample fback.cpp
-static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
-                    double, const Scalar& color)
-{
-    // Optical flow is stored as two-channel floating point array in a Mat
-    // of type CV_32FC2
-    for(int y = 0; y < cflowmap.rows; y += step)
-	{
-        for(int x = 0; x < cflowmap.cols; x += step)
-        {
-            //Get the flow vector as a Point2f object
-            const Point2f& fxy = flow.at<Point2f>(y, x);
-
-            // Draw a line from the image point using the flow vector
-            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
-                 color);
-            //circle(cflowmap, Point(x,y), 2, color, -1);
-        }
-	}
-}
-
-// copied from OpenCV sample fback.cpp
-static void drawOptFlowMapROI(const Mat& flow, Mat& cflowmap, Rect ROI, int step,
-                    double, const Scalar& color)
-{
-    // Optical flow is stored as two-channel floating point array in a Mat
-    // of type CV_32FC2
-    for(int y = ROI.y; y < ROI.y+ROI.height; y += step)
-	{
-        for(int x = ROI.x; x < ROI.x+ROI.width; x += step)
-        {
-            //Get the flow vector as a Point2f object
-            const Point2f& fxy = flow.at<Point2f>(y, x);
-
-            // Draw a line from the image point using the flow vector
-            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
-                 color);
-            //circle(cflowmap, Point(x,y), 2, color, -1);
-        }
-	}
-}
-
-void drawDetectionFlows (Mat& frame, Mat&flow, vector<Rect> cars, const Scalar& color) 
-{
-	for( size_t i = 0; i < cars.size(); i++ ) 
-	{
-		//circle(frame, Point(cars[i].x, cars[i].y), 40, color, -1);
-		drawOptFlowMapROI(flow, frame, cars[i], 16, 1.5, CV_RGB(0, 255, 0));
-	}
-}
-
-
-//Required: Using the drawOptFlowMap function as inspiration, compute the magnitude and angle
-//of every point in the flow field so it can be visualized 
-//Your angles should be in degrees (atan2 returns radians) and they should go from -180 to 180.
-void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle)
-{
-    if(magnitude.rows != flow.rows || magnitude.cols != flow.cols)
-    {
-        magnitude.create(flow.rows, flow.cols, CV_32FC1);
-    }
-    if(angle.rows != flow.rows || angle.cols != flow.cols)
-    {
-        angle.create(flow.rows, flow.cols, CV_32FC1);
-    }
-
-	Mat xy[2];
-	split(flow, xy);
-	cartToPolar(xy[0], xy[1], magnitude, angle, true);
-
-}
-
-//Given: Function to visualize the magnitude and orientation of the flow field
-//The magnitude needs to be normalized for visualization. On my test video, the flow was not more than 10.
-//You may want to adjust the maximum flow or computer it automatically
-void visualizeFlow(const Mat& magnitude, const Mat& angle, Mat& magnitude8UC1, Mat& angle8UC3)
-{
-    if(magnitude8UC1.rows != magnitude.rows || magnitude8UC1.cols != magnitude.cols || magnitude8UC1.type() != CV_8UC3)
-    {
-        magnitude8UC1.create(magnitude.rows, magnitude.cols, CV_8UC1);
-    }
-    if(angle8UC3.rows != angle.rows || angle8UC3.cols != angle.cols || angle8UC3.type() != CV_8UC3)
-    {
-        angle8UC3.create(angle.rows, angle.cols, CV_8UC3);
-    }
-
-    double minMag, maxMag;
-    //minMaxLoc(magnitude, &minMag, &maxMag); //to automatically compute the maximum
-    minMag = 0;
-    maxMag = 10; // your mileage my vary
-
-    Mat tempMagnitude;
-    tempMagnitude = (magnitude - minMag)/(maxMag-minMag)*255;
-    tempMagnitude.convertTo(magnitude8UC1, CV_8UC1);
-
-    //Going to create a rainbow image where the hue correspondes to the angle
-    for(int y=0; y<angle.rows; y++)
-    {
-        unsigned char* rowPtr = angle8UC3.ptr<unsigned char>(y);
-        for(int x=0; x<angle.cols; x++)
-        {
-            int index = x*3;
-            rowPtr[index] = (angle.at<float>(y,x)+180)/2.0;
-            rowPtr[index+1] = 128; //don't use full saturation or you'll go blind.
-            rowPtr[index+2] = 196;
-        }
-    }
-    cvtColor(angle8UC3, angle8UC3, CV_HSV2BGR);
 }
