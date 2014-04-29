@@ -21,10 +21,11 @@ void drawDetections (Mat& frame, vector<Rect> cars);
 
 /*camera speeed stuff*/
 float length(float x, float y);
-vector<float> getCarSpeeds(vector<Rect> cars, int &counter, int frame);
-float getCameraSpeed(int &counter, int frame);
+vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow);
+	double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow);
 vector<float> getTimeStampsGPS();
 vector<float> getTimeStampsVideo();
+float getGPSVelocity(int counter);
 /*end camera speed stuff*/
 
 /* optical flow stuff */
@@ -48,6 +49,8 @@ int main(int argc, char* argv[]) {
 	String frame_folder = "./data/video/data/";
 	String frame_filetype = ".png";
 
+	int GPS_counter = 0;
+
 	vector<Rect> cars; // stores ROI for detected cars
 	vector<Mat> prevFrame; // stores frames from last iteration for template tracking
 
@@ -55,7 +58,6 @@ int main(int argc, char* argv[]) {
 	Mat flow, cflow, magnitude, angle;
 	Mat gray_old, gray_new;
 	vector<Mat> carOptFlow;
-	namedWindow( "flow", 1 );
 
 	while (frame_counter < frame_total) {
 		// Read current image as video frame
@@ -117,6 +119,27 @@ int main(int argc, char* argv[]) {
 		/* end optical flow calculation */
 
 
+
+		/* start math code */
+		float GPS_speed = getGPSVelocity(GPS_counter);
+		std::ostringstream speed_str;
+		speed_str << GPS_speed;
+		std::string str = speed_str.str();
+		putText(frame, str, cvPoint(30,30), FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+		
+		if (frame_counter > 1)
+		{
+			vector<Point2d> carSpeeds = getCarSpeeds(cars, GPS_counter, frame_counter, frame, flow);
+			for( size_t i = 0; i < cars.size(); i++ ) 
+			{
+				Point topLeft = Point(cars[i].x, cars[i].y);
+				float GPS_speed = length(carSpeeds[i].x, carSpeeds[i].y);
+				std::ostringstream speed_str;
+				speed_str << GPS_speed;
+				std::string str = speed_str.str();
+				putText(frame, str, topLeft, FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+			}
+		}
 
 		imshow("Frame", frame);
 		if (waitKey(10) == 'q')
@@ -409,17 +432,25 @@ void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle)
 /*
  * START SPEED MATH CODE
  */
-vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frame){
-	float ratio = getCameraSpeed(counter,frame);		 
+vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow){
 
-	Mat opticalFlow; //dummy, same as below
+	Mat opticalFlow, magnitude,angle;
+	opticalFlow = flow;
+	//opticalFlowMagnitudeAngle(opticalFlow,magnitude,angle);
 
-	vector<float> speedLabels;
+	double ratio = getCameraSpeed(counter,frame,frameNumber, opticalFlow);		 
+
+
+	vector<Point2d> speedLabels;
 	for( size_t i = 0; i < cars.size(); i++ ){
-		speedLabels.at(i) = mean(opticalFlow(cars.at(i)))[0] * ratio;
+		Point avgFlow = getAverageFlow(opticalFlow,cars[i]); // BREAKS HERE????
+		Point ratioPoint = Point2d((float)ratio,1);
+		speedLabels.push_back(Point(avgFlow.x*ratioPoint.x, avgFlow.y*ratioPoint.y));
 	}
 	return speedLabels;
 }
+
+
 
 
 float getGPSVelocity(int counter){
@@ -440,29 +471,30 @@ float getGPSVelocity(int counter){
 	char temp[256];
 	std::ifstream ifs (dataFile,std::ifstream::in);
 	int size = 0;
-	while(ifs.good() && (size < 9)){
-		ifs.get(temp,10,' ');
+	while (size < 9) {
+		ifs.get(temp,32,' ');
 		GPS.push_back(atof(temp));
+		//cout << GPS[size] << " + size: " << size << endl;
+		ifs.get(temp, 2);
 		size ++;
 	}
 	return length(GPS.at(6),GPS.at(7));
 }
 
-float getCameraSpeed(int &counter, int frame){
+double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow){
 	float cameraVelocity = 0.0;
 
 	vector<float> GPSTime = getTimeStampsGPS();
 	vector<float> FrameTime = getTimeStampsVideo();
 
-	while(FrameTime.at(frame) > GPSTime.at(counter)){
+	while(FrameTime.at(frameNumber) > GPSTime.at(counter)){
 		cameraVelocity += getGPSVelocity(counter);
 		counter++;
 	}
 
-	Rect frontOfCar = Rect(); //dummy  //(shoudl be roughly the front of the car, say, middle fifth of the x, lowest quarter of the y
+	Rect frontOfCar = getRoadRect(frame);  //(shoudl be roughly the front of the car, say, middle fifth of the x, lowest quarter of the y
 
-	Mat opFlow;//assumeing you guys are covereing that part, either I'll pass it through as a pointer or we store it globablly
-	Mat focRegion = opFlow(frontOfCar);
+	Mat focRegion = flow(frontOfCar);
 
 	double pixelVelocity = mean(focRegion)[0]; //this is how you get the average, though th e0 means for only the first channel
 	double realToImage = pixelVelocity/cameraVelocity; //this works as we are treated the time between frames as 1
