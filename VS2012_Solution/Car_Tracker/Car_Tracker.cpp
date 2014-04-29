@@ -21,7 +21,7 @@ void drawDetections (Mat& frame, vector<Rect> cars);
 
 /*camera speeed stuff*/
 float length(float x, float y);
-vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow);
+vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow);
 	double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow);
 vector<float> getTimeStampsGPS();
 vector<float> getTimeStampsVideo();
@@ -124,19 +124,19 @@ int main(int argc, char* argv[]) {
 		float GPS_speed = getGPSVelocity(GPS_counter);
 		std::ostringstream speed_str;
 		speed_str << GPS_speed;
-		std::string str = speed_str.str();
+		std::string str = speed_str.str() + " m/s";
 		putText(frame, str, cvPoint(30,30), FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
 		
 		if (frame_counter > 1)
 		{
-			vector<Point2d> carSpeeds = getCarSpeeds(cars, GPS_counter, frame_counter, frame, flow);
+			vector<float> carSpeeds = getCarSpeeds(cars, GPS_counter, frame_counter, frame, flow);
 			for( size_t i = 0; i < cars.size(); i++ ) 
 			{
-				Point topLeft = Point(cars[i].x, cars[i].y);
-				float GPS_speed = length(carSpeeds[i].x, carSpeeds[i].y);
+				Point topLeft = Point(cars[i].x, cars[i].y-10);
+				float car_speed = carSpeeds[i]+GPS_speed;
 				std::ostringstream speed_str;
 				speed_str << GPS_speed;
-				std::string str = speed_str.str();
+				std::string str = speed_str.str() + " m/s";
 				putText(frame, str, topLeft, FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
 			}
 		}
@@ -432,7 +432,7 @@ void opticalFlowMagnitudeAngle(const Mat& flow, Mat& magnitude, Mat& angle)
 /*
  * START SPEED MATH CODE
  */
-vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow){
+vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow){
 
 	Mat opticalFlow, magnitude,angle;
 	opticalFlow = flow;
@@ -441,11 +441,10 @@ vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Ma
 	double ratio = getCameraSpeed(counter,frame,frameNumber, opticalFlow);		 
 
 
-	vector<Point2d> speedLabels;
+	vector<float> speedLabels;
 	for( size_t i = 0; i < cars.size(); i++ ){
 		Point avgFlow = getAverageFlow(opticalFlow,cars[i]); // BREAKS HERE????
-		Point ratioPoint = Point2d((float)ratio,1);
-		speedLabels.push_back(Point(avgFlow.x*ratioPoint.x, avgFlow.y*ratioPoint.y));
+		speedLabels.push_back(abs(length(avgFlow.x, avgFlow.y))*ratio);
 	}
 	return speedLabels;
 }
