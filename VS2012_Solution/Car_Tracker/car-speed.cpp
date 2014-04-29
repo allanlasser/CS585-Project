@@ -14,14 +14,17 @@
 using namespace std;
 using namespace cv;
 
-vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frame){
-	double ratio = getCameraSpeed(counter,frame);		 
+vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame){
+	
+	Mat opticalFlow, magnitude,angle;
+	opticalFlowMagnitudeAngle(opticalFlow,magnitude,angle);
 
-	Mat opticalFlow; //dummy, same as below
+	double ratio = getCameraSpeed(counter,frameNumber,frame,opticalFlow);		 
 
-	vector<float> speedLabels;
+
+	vector<Point2d> speedLabels;
 	for( size_t i = 0; i < cars.size(); i++ ){
-		speedLabels.at(i) = mean(opticalFlow(cars.at(i)))[0] * (float)ratio;
+		speedLabels.at(i) = getAverageFlow(opticalFlow,cars.at(i)) * Point2d((float)ratio,1);
 	}
 	return speedLabels;
 }
@@ -53,21 +56,20 @@ float getGPSVelocity(int counter){
 	return length(GPS.at(6),GPS.at(7));
 }
 
-double getCameraSpeed(int &counter, int frame){
+double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow){
 	float cameraVelocity = 0.0;
 
 	vector<float> GPSTime = getTimeStampsGPS();
 	vector<float> FrameTime = getTimeStampsVideo();
 
-	while(FrameTime.at(frame) > GPSTime.at(counter)){
+	while(FrameTime.at(frameNumber) > GPSTime.at(counter)){
 		cameraVelocity += getGPSVelocity(counter);
 		counter++;
 	}
 
-	Rect frontOfCar = Rect(); //dummy  //(shoudl be roughly the front of the car, say, middle fifth of the x, lowest quarter of the y
+	Rect frontOfCar = getRoadRect(frame);  //(shoudl be roughly the front of the car, say, middle fifth of the x, lowest quarter of the y
 
-	Mat opFlow;//assumeing you guys are covereing that part, either I'll pass it through as a pointer or we store it globablly
-	Mat focRegion = opFlow(frontOfCar);
+	Mat focRegion = flow(frontOfCar);
 
 	double pixelVelocity = mean(focRegion)[0]; //this is how you get the average, though th e0 means for only the first channel
 	double realToImage = pixelVelocity/cameraVelocity; //this works as we are treated the time between frames as 1

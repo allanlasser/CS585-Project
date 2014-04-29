@@ -17,7 +17,7 @@
 using namespace std;
 using namespace cv;
 
-vector<float> getCarSpeeds(vector<Rect> cars, int &counter, int frame);
-double getCameraSpeed(int &counter, int frame);
+vector<Point2d> getCarSpeeds(vector<Rect> cars, int &counter, int frameNumber, Mat& frame);
+double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow);
 vector<float> getTimeStampsGPS();
 vector<float> getTimeStampsVideo();

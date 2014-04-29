@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
 	int frame_total = 300;
 	String frame_folder = "./data/video/data/";
 	String frame_filetype = ".png";
-
+	int gpsCounter = 0;
 	vector<Rect> cars; // stores ROI for detected cars
 	vector<Mat> prevFrame; // stores frames from last iteration for template tracking
 
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 		}
 		prevFrame = getPatches(frame, cars);
 		/* End Car Tracking */
-		
+		vector<Point2d> labels = getCarSpeeds(cars,gpsCounter,frame_counter,frame);
 		drawDetections(frame, cars); // this is accessory a.k.a. delete whenevs yo
 
 		imshow("Frame", frame);
