@@ -15,7 +15,6 @@
 using namespace std;
 using namespace cv;
 
-
 Rect getRoadRect(Mat image) 
 {
 	int width = image.cols;
