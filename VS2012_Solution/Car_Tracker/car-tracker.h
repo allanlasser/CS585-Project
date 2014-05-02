@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include "helpers.h"
 #include "car-speed.h"
+#include "optical-flow.h"
 #include <iostream>
 #include <fstream>
 #include <ctype.h>

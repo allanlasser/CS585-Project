@@ -10,3 +10,4 @@
 using namespace std;
 
 float length(float x, float y);
+string getFilename(string path, string ext, int counter);

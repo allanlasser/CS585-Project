@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include "helpers.h"
 #include "car-tracker.h"
+#include "optical-flow.h"
 #include <iostream>
 #include <fstream>
 #include <ctype.h>
@@ -17,7 +18,8 @@
 using namespace std;
 using namespace cv;
 
-vector<Point2d> getCarSpeeds(vector<Rect> cars, int &counter, int frameNumber, Mat& frame);
+vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow);
 double getCameraSpeed(int &counter, Mat &frame,int frameNumber, Mat &flow);
 vector<float> getTimeStampsGPS();
 vector<float> getTimeStampsVideo();
+float getGPSVelocity(int counter);

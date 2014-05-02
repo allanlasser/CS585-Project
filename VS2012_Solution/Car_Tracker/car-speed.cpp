@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "helpers.h"
 #include "car-tracker.h"
+#include "optical-flow.h"
 #include <iostream>
 #include <fstream>
 #include <ctype.h>
@@ -14,43 +15,34 @@
 using namespace std;
 using namespace cv;
 
-vector<Point2d> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame){
-	
+vector<float> getCarSpeeds(vector<Rect> cars, int counter, int frameNumber, Mat &frame, Mat &flow){
+
 	Mat opticalFlow, magnitude,angle;
-	opticalFlowMagnitudeAngle(opticalFlow,magnitude,angle);
+	opticalFlow = flow;
+	//opticalFlowMagnitudeAngle(opticalFlow,magnitude,angle);
 
-	double ratio = getCameraSpeed(counter,frameNumber,frame,opticalFlow);		 
+	double ratio = getCameraSpeed(counter,frame,frameNumber, opticalFlow);		 
 
 
-	vector<Point2d> speedLabels;
+	vector<float> speedLabels;
 	for( size_t i = 0; i < cars.size(); i++ ){
-		speedLabels.at(i) = getAverageFlow(opticalFlow,cars.at(i)) * Point2d((float)ratio,1);
+		Point avgFlow = getAverageFlow(opticalFlow,cars[i]); // BREAKS HERE????
+		speedLabels.push_back(abs(length(avgFlow.x, avgFlow.y)) * ratio);
 	}
 	return speedLabels;
 }
 
-
 float getGPSVelocity(int counter){
 	vector<float> GPS;//read_data_for_frame
-	String dataFile = "./data/oxts/data/";
-	if (counter < 10) {
-			dataFile += "000000000";
-		} else if (counter < 100) {
-			dataFile += "00000000";
-		} else if (counter < 1000) {
-			dataFile += "0000000";
-		} else if (counter < 10000) {
-			dataFile += "000000";
-		} else {
-			dataFile += "00000";
-		}
-	dataFile += to_string(counter) + ".txt";
+	String dataFile = getFilename("./data/oxts/data/", ".txt", counter);
 	char temp[256];
 	std::ifstream ifs (dataFile,std::ifstream::in);
 	int size = 0;
-	while(ifs.good() && (size < 9)){
-		ifs.get(temp,10,' ');
+	while (size < 9) {
+		ifs.get(temp,32,' ');
 		GPS.push_back(atof(temp));
+		//cout << GPS[size] << " + size: " << size << endl;
+		ifs.get(temp, 2);
 		size ++;
 	}
 	return length(GPS.at(6),GPS.at(7));

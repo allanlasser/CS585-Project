@@ -2,6 +2,7 @@
 #include "helpers.h"
 #include "car-tracker.h"
 #include "car-speed.h"
+#include "optical-flow.h"
 #include <iostream>
 #include <fstream>
 #include <ctype.h>
