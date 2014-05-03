@@ -1,21 +1,12 @@
-#include "stdafx.h"
-#include "helpers.h"
-#include "car-tracker.h"
-#include "car-speed.h"
-#include "optical-flow.h"
-#include <iostream>
-#include <fstream>
-#include <ctype.h>
-#include <string>
-#include <vector>
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/objdetect/objdetect.hpp>
+/* 
+** main.cpp
+** Main method for car tracking and speed analysis project.
+**
+** by Ashley Hansberry, Allan Lasser, and James Racine
+** for CS585 Final Project
+*/
 
-using namespace std;
-using namespace cv;
+#include "stdafx.h"
 
 int main(int argc, char* argv[]) {
 	int frame_counter = 0;

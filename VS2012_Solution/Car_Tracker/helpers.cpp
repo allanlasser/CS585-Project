@@ -1,18 +1,17 @@
-/*
-** These functions do not rely on OpenCV libraries.
+/* 
+** helpers.cpp
+** Standard functionality like filename generation and error handling
 */
 
 #include "stdafx.h"
-#include <iostream>
-#include <fstream>
-#include <ctype.h>
-#include <string>
-#include <vector>
-
-using namespace std;
 
 float length(float x, float y){
 	return sqrtf(x*x+y*y);
+}
+
+void throwError (Exception e) {
+	cout << "ERROR: " << e.err << "\n       on line " << e.line << " of " << e.file << "\n";
+	exit(EXIT_FAILURE);
 }
 
 // Read current image as video frame
@@ -34,5 +33,3 @@ string getFilename (string path, string ext, int counter) {
 	toReturn += to_string(counter) + ext;
 	return toReturn;
 }
-
-// TODO: Standard error detection functions
